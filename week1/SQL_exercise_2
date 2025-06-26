@@ -1,1 +1,127 @@
 
+-------------------------------------------------------------------------------------------------------------------- SCENERIO 1 ---------------------------------------------------------------------------------------------------------------------------------------------
+
+
+CREATE OR REPLACE PROCEDURE SafeTransferFunds (
+  p_from_acct IN NUMBER,
+  p_to_acct   IN NUMBER,
+  p_amount    IN NUMBER
+)
+IS
+  v_balance NUMBER;
+BEGIN
+  SELECT Balance INTO v_balance FROM Accounts WHERE AccountID = p_from_acct;
+
+  IF v_balance < p_amount THEN
+    RAISE_APPLICATION_ERROR(-20001, ' Insufficient funds!');
+  END IF;
+
+  UPDATE Accounts SET Balance = Balance - p_amount WHERE AccountID = p_from_acct;
+  UPDATE Accounts SET Balance = Balance + p_amount WHERE AccountID = p_to_acct;
+
+  COMMIT;
+
+  DBMS_OUTPUT.PUT_LINE(' Funds transferred: ' || p_amount || 
+                       ' from Account ' || p_from_acct || 
+                       ' to Account ' || p_to_acct);
+EXCEPTION
+  WHEN OTHERS THEN
+    ROLLBACK;
+    DBMS_OUTPUT.PUT_LINE(' Transfer failed: ' || SQLERRM);
+END;
+/
+
+  
+
+BEGIN
+  SafeTransferFunds(1, 2, 500);
+END;
+/
+
+OUTPUT : 
+ Funds transferred: 500 from Account 1 to Account 2
+
+
+-------------------------------------------------------------------------------------------------------------------- SCENERIO 2 ---------------------------------------------------------------------------------------------------------------------------------------------
+
+
+CREATE OR REPLACE PROCEDURE UpdateSalary (
+  p_emp_id IN NUMBER,
+  p_percent IN NUMBER
+)
+IS
+BEGIN
+  UPDATE Employees
+  SET Salary = Salary + (Salary * p_percent / 100)
+  WHERE EmployeeID = p_emp_id;
+
+  IF SQL%ROWCOUNT = 0 THEN
+    RAISE_APPLICATION_ERROR(-20002, ' Employee not found');
+  END IF;
+
+  COMMIT;
+
+  DBMS_OUTPUT.PUT_LINE(' Salary updated for Employee ID: ' || p_emp_id);
+EXCEPTION
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE(' Error updating salary: ' || SQLERRM);
+    ROLLBACK;
+END;
+/
+
+-- Execution  
+
+BEGIN
+  UpdateSalary(2, 15);
+END;
+/
+
+OUTPUT : 
+
+ Salary updated for Employee ID: 2
+
+
+-------------------------------------------------------------------------------------------------------------------- SCENERIO 3 ---------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+CREATE OR REPLACE PROCEDURE AddNewCustomer (
+  p_id   IN NUMBER,
+  p_name IN VARCHAR2,
+  p_dob  IN DATE,
+  p_bal  IN NUMBER
+)
+IS
+BEGIN
+  INSERT INTO Customers (CustomerID, Name, DOB, Balance, LastModified)
+  VALUES (p_id, p_name, p_dob, p_bal, SYSDATE);
+
+  COMMIT;
+
+  DBMS_OUTPUT.PUT_LINE(' New customer added → ID: ' || p_id || ', Name: ' || p_name);
+EXCEPTION
+  WHEN DUP_VAL_ON_INDEX THEN
+    DBMS_OUTPUT.PUT_LINE(' Customer ID already exists: ' || p_id);
+    ROLLBACK;
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE(' Error adding customer: ' || SQLERRM);
+    ROLLBACK;
+END;
+/
+
+-- Execution  :
+
+BEGIN
+  AddNewCustomer(4, 'Charan', TO_DATE('2002-05-20', 'YYYY-MM-DD'), 7000);
+END;
+/
+
+OUTPUT : 
+
+ New customer added → ID: 4, Name: Charan
+
+
+
+
+
+
