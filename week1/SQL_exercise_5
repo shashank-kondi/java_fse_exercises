@@ -1,1 +1,112 @@
 
+--------------------------------------------------------------------------------------------------------------------
+                                               SCENARIO 1 
+--------------------------------------------------------------------------------------------------------------------
+
+-- Trigger: Automatically updates LastModified
+CREATE OR REPLACE TRIGGER UpdateCustomerLastModified
+BEFORE UPDATE ON Customers
+FOR EACH ROW
+BEGIN
+  :NEW.LastModified := SYSDATE;
+END;
+/
+
+-- ACTION: Update customer to trigger the change
+UPDATE Customers
+SET Balance = Balance + 100
+WHERE CustomerID = 1;
+
+-- OUTPUT CHECK:
+SELECT CustomerID, Name, LastModified FROM Customers WHERE CustomerID = 1;
+
+OUTPUT : 
+
+CustomerID | Name     | LastModified
+-----------|----------|-----------------
+1          | Shashank | 26-JUN-2025
+
+
+--------------------------------------------------------------------------------------------------------------------
+                                               SCENARIO 2 
+--------------------------------------------------------------------------------------------------------------------
+
+-- Step 1: Create AuditLog Table
+CREATE TABLE AuditLog (
+  LogID NUMBER GENERATED ALWAYS AS IDENTITY,
+  Action VARCHAR2(50),
+  TransactionID NUMBER,
+  Timestamp DATE
+);
+
+-- Step 2: Create Trigger
+CREATE OR REPLACE TRIGGER LogTransaction
+AFTER INSERT ON Transactions
+FOR EACH ROW
+BEGIN
+  INSERT INTO AuditLog (Action, TransactionID, Timestamp)
+  VALUES ('INSERT', :NEW.TransactionID, SYSDATE);
+END;
+/
+
+-- Step 3: Insert sample transaction
+INSERT INTO Transactions (TransactionID, AccountID, Amount, TransactionType)
+VALUES (201, 1, 500, 'Deposit');
+
+-- OUTPUT CHECK:
+SELECT * FROM AuditLog;
+
+
+OUTPUT : 
+
+LogID | Action | TransactionID | Timestamp
+------|--------|----------------|------------------
+1     | INSERT | 201            | 26-JUN-2025
+
+
+--------------------------------------------------------------------------------------------------------------------
+                                               SCENARIO 3 
+--------------------------------------------------------------------------------------------------------------------
+
+
+-- Step 1: Create Trigger
+CREATE OR REPLACE TRIGGER CheckTransactionRules
+BEFORE INSERT ON Transactions
+FOR EACH ROW
+DECLARE
+  v_balance NUMBER;
+BEGIN
+  IF :NEW.TransactionType = 'Withdrawal' THEN
+    SELECT Balance INTO v_balance FROM Accounts WHERE AccountID = :NEW.AccountID;
+
+    IF :NEW.Amount > v_balance THEN
+      RAISE_APPLICATION_ERROR(-20001, '❌ Withdrawal exceeds balance');
+    END IF;
+  ELSIF :NEW.TransactionType = 'Deposit' THEN
+    IF :NEW.Amount <= 0 THEN
+      RAISE_APPLICATION_ERROR(-20002, '❌ Deposit must be positive');
+    END IF;
+  END IF;
+END;
+/
+
+-- VALID INSERT (Deposit)
+INSERT INTO Transactions (TransactionID, AccountID, Amount, TransactionType)
+VALUES (202, 1, 1000, 'Deposit');
+
+-- INVALID INSERT (Overdraft Withdrawal)
+INSERT INTO Transactions (TransactionID, AccountID, Amount, TransactionType)
+VALUES (203, 1, 9999999, 'Withdrawal');
+
+-- INVALID INSERT (Negative Deposit)
+INSERT INTO Transactions (TransactionID, AccountID, Amount, TransactionType)
+VALUES (204, 1, -500, 'Deposit');
+
+OUTPUT : 
+
+-- Success:
+✔ Deposit added: TransactionID 202
+
+-- Failures:
+❌ ORA-20001: Withdrawal exceeds balance
+❌ ORA-20002: Deposit must be positive
