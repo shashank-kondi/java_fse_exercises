@@ -1,1 +1,107 @@
 
+--------------------------------------------------------------------------------------------------------------------
+                                               SCENARIO 1 
+--------------------------------------------------------------------------------------------------------------------
+
+SET SERVEROUTPUT ON;
+
+DECLARE
+  CURSOR txn_cursor IS
+    SELECT CustomerID, TransactionID, Amount, TransactionType, TransactionDate
+    FROM Transactions
+    WHERE TRUNC(TransactionDate, 'MM') = TRUNC(SYSDATE, 'MM');
+
+  v_rec txn_cursor%ROWTYPE;
+BEGIN
+  OPEN txn_cursor;
+  LOOP
+    FETCH txn_cursor INTO v_rec;
+    EXIT WHEN txn_cursor%NOTFOUND;
+
+    DBMS_OUTPUT.PUT_LINE('🧾 Statement: CustomerID=' || v_rec.CustomerID || 
+                         ', TxnID=' || v_rec.TransactionID ||
+                         ', Type=' || v_rec.TransactionType ||
+                         ', Amount=' || v_rec.Amount ||
+                         ', Date=' || TO_CHAR(v_rec.TransactionDate, 'DD-MON-YYYY'));
+  END LOOP;
+  CLOSE txn_cursor;
+END;
+/
+
+
+OUTPUT : 
+
+🧾 Statement: CustomerID=1, TxnID=201, Type=Deposit, Amount=500, Date=26-JUN-2025
+🧾 Statement: CustomerID=1, TxnID=202, Type=Deposit, Amount=1000, Date=26-JUN-2025
+
+
+--------------------------------------------------------------------------------------------------------------------
+                                               SCENARIO 2 
+--------------------------------------------------------------------------------------------------------------------
+
+SET SERVEROUTPUT ON;
+
+DECLARE
+  CURSOR acct_cursor IS
+    SELECT AccountID, Balance FROM Accounts;
+
+  v_rec acct_cursor%ROWTYPE;
+  v_fee NUMBER := 200;
+BEGIN
+  OPEN acct_cursor;
+  LOOP
+    FETCH acct_cursor INTO v_rec;
+    EXIT WHEN acct_cursor%NOTFOUND;
+
+    UPDATE Accounts
+    SET Balance = Balance - v_fee
+    WHERE AccountID = v_rec.AccountID;
+
+    DBMS_OUTPUT.PUT_LINE('💸 Annual fee of ' || v_fee || ' deducted from Account ID: ' || v_rec.AccountID);
+  END LOOP;
+  CLOSE acct_cursor;
+  COMMIT;
+END;
+/
+
+OUTPUT : 
+
+💸 Annual fee of 200 deducted from Account ID: 1
+💸 Annual fee of 200 deducted from Account ID: 2
+
+
+--------------------------------------------------------------------------------------------------------------------
+                                               SCENARIO 3 
+--------------------------------------------------------------------------------------------------------------------
+
+SET SERVEROUTPUT ON;
+
+DECLARE
+  CURSOR loan_cursor IS
+    SELECT LoanID, InterestRate FROM Loans;
+
+  v_rec loan_cursor%ROWTYPE;
+  v_new_rate NUMBER := 4.5;
+BEGIN
+  OPEN loan_cursor;
+  LOOP
+    FETCH loan_cursor INTO v_rec;
+    EXIT WHEN loan_cursor%NOTFOUND;
+
+    UPDATE Loans
+    SET InterestRate = v_new_rate
+    WHERE LoanID = v_rec.LoanID;
+
+    DBMS_OUTPUT.PUT_LINE('🔁 Loan ID ' || v_rec.LoanID || ' updated to interest rate: ' || v_new_rate);
+  END LOOP;
+  CLOSE loan_cursor;
+  COMMIT;
+END;
+/
+
+OUTPUT : 
+
+🔁 Loan ID 101 updated to interest rate: 4.5
+🔁 Loan ID 102 updated to interest rate: 4.5
+🔁 Loan ID 103 updated to interest rate: 4.5
+
